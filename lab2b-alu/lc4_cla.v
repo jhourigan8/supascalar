@@ -28,7 +28,13 @@ module gp4(input wire [3:0] gin, pin,
            input wire cin,
            output wire gout, pout,
            output wire [2:0] cout);
-   
+           
+   assign cout[0] = (pin[0] & cin) | gin[0]
+   assign cout[1] = (pin[1] & pin[0] & cin) | (pin[1] & gin[0]) | gin[1]
+   assign cout[2] = (pin[2] & pin[1] & pin[0] & cin) | (pin[2] & pin[1] & gin[0]) | (pin[2] & gin[1]) | gin[2]
+   assign gout = (pin[3] & pin[2] & pin[1] & gin[0]) | (pin[3] & pin[2] & gin[1]) | (pin[3] & gin[2]) | gin[3]
+   assign pout = pin[0] & pin[1] & pin[2] & pin[3]
+              
 endmodule
 
 /**
