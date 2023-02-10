@@ -1,4 +1,4 @@
-/* TODO: INSERT NAME AND PENNKEY HERE */
+/* Mike Zhou (mikezhou) and Jack Hourigan (hojack) */
 
 `timescale 1ns / 1ps
 `default_nettype none
