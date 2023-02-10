@@ -54,8 +54,8 @@ module lc4_alu(input  wire [15:0] i_insn,
                   ((i_insn[5:3] == 3'b000) ? {i_r1data, i_r2data, 1'b0} :
                   (i_insn[5:3] == 3'b010) ? {i_r1data, ~i_r2data, 1'b1} :
                   {i_r1data, i_insn[4] ? {11'h7FF, i_insn[4:0]} : {11'b0, i_insn[4:0]}, 1'b0}) :
-            (i_insn[15:12] == 4'b0110) ? {i_r1data, i_insn[10] ? {5'h1F, i_insn[10:0]} : {5'h1F, i_insn[10:0]}, 1'b0} :
-            (i_insn[15:12] == 4'b0111) ? {i_r1data,  i_insn[10] ? {5'h1F, i_insn[10:0]} : {5'h1F, i_insn[10:0]}, 1'b0} :
+            (i_insn[15:12] == 4'b0110) ? {i_r1data, i_insn[5] ? {10'h3FF, i_insn[5:0]} : {10'b0, i_insn[5:0]}, 1'b0} :
+            (i_insn[15:12] == 4'b0111) ? {i_r1data, i_insn[5] ? {10'h3FF, i_insn[5:0]} : {10'b0, i_insn[5:0]}, 1'b0} :
             {i_pc, {5'b0, i_insn[10:0]}, 1'b1};
 
       assign adder_a = adder_tmp[32:17];
@@ -118,7 +118,7 @@ module lc4_alu(input  wire [15:0] i_insn,
             (i_insn[5:3] == 3'b010) ? i_r1data | i_r2data :
             (i_insn[5:3] == 3'b011) ? i_r1data ^ i_r2data :
             // default
-            i_r1data ^ (i_insn[4] ? {11'h7FF, i_insn[4:0]} : {11'b0, i_insn[4:0]}); 
+            i_r1data & (i_insn[4] ? {11'h7FF, i_insn[4:0]} : {11'b0, i_insn[4:0]}); 
 
       // 0110 -- load
       wire [15:0] load_out;
@@ -126,7 +126,7 @@ module lc4_alu(input  wire [15:0] i_insn,
 
       // 0111 -- store
       wire [15:0] store_out;
-      assign load_out = adder_sum;
+      assign store_out = adder_sum;
 
       // 1000 -- rti
       wire [15:0] rti_out;
