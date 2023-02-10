@@ -108,5 +108,27 @@ module gpn
    input wire  cin,
    output wire gout, pout,
    output wire [N-2:0] cout);
+
+    // (TOP, BOTTOM) in and chain + generate at from
+    wire [N-1:0] pchain [N-1:0];
+    wire [N:0] gens;
+    assign gens = {gin, cin};
+    genvar i;
+    for (i = 0; i < N; i = i+1) begin
+      assign pchain[i][i] = pin[i] & gens[i];
+      genvar j;
+      for (j = i+1; j < N; j=j+1) begin
+        assign pchain[j][i] = pchain[j-1][i] & pin[j];
+      end
+    end
+    // pchain[j][i] = pin[j] & ... & pin[i] & gens[i]
+
+    for (i = 0; i < N-1; i=i+1) begin
+      // get all with top i
+      assign cout[i] = | pchain[i][i:0] | gin[i];
+    end
+    // get all except cin propagate with top N-1
+    assign gout = | pchain[N-1][N-1:1] | gin[N-1];
+    assign pout = & pin;
  
 endmodule
