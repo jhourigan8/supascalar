@@ -63,11 +63,12 @@ module cla16
   genvar i;
   for (i = 0; i < 16; i = i+1) begin
     assign gin[i] = a[i] & b[i];
+    // i think this can be xor too and it doesn't matter
     assign pin[i] = a[i] | b[i];
   end
 
   // (1) compute windowed g/p
-  // (3) now given carry at 4*i, can get carries at 4*i + 1, 4*i + 2, 4*i + 3
+  // (3) use carry at 4*i to get carries at 4*i + 1, 4*i + 2, 4*i + 3
   for (i = 0; i < 4; i = i+1) begin
     gp4 layer_1_gp (
         gin[4 * i + 3 : 4 * i], 
@@ -89,7 +90,7 @@ module cla16
     {cout[12], cout[8], cout[4]}
   );
 
-  // now we have all the carries! xor.
+  // (4) now we have all the carries! xor.
   for (i = 0; i < 16; i = i+1) begin
     assign sum[i] = a[i] ^ b[i] ^ cout[i];
   end
