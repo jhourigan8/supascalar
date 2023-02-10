@@ -12,37 +12,20 @@ module lc4_alu(input  wire [15:0] i_insn,
       // top level mux
       // even though some of these cases are trivial (e.g. all zeroes)
       // for uniformity just going to mux them anyway
-      always_comb begin case (i_insn[15:12]) 
-            4'b0000:
-                  assign o_result = branch_out;
-            4'b0001:
-                  assign o_result = arith_out;
-            4'b0010:
-                  assign o_result = cmp_out;
-            // no 0011
-            4'b0100:
-                  assign o_result = jsr_out;
-            4'b0101:
-                  assign o_result = logic_out;
-            4'b0110:
-                  assign o_result = load_out;
-            4'b0111:
-                  assign o_result = store_out;
-            4'b1000:
-                  assign o_result = rti_out;
-            4'b1001:
-                  assign o_result = const_out;
-            4'b1010:
-                  assign o_result = shift_out;
-            // no 1011
-            4'b1100:
-                  assign o_result = jump_out;
-            4'b1101:
-                  assign o_result = hiconst_out;
-            // no 1110
-            4'b1111:
-                  assign o_result = trap_out;
-      endcase end
+      assign o_result = 
+            (i_insn[15:12] == 4’b0000) ? branch_out:
+            (i_insn[15:12] == 4’b0001) ? arith_out:
+            (i_insn[15:12] == 4’b0010) ? cmp_out:
+            (i_insn[15:12] == 4’b0100) ? jsr_out:
+            (i_insn[15:12] == 4’b0101) ? logic_out:
+            (i_insn[15:12] == 4’b0110) ? load_out:
+            (i_insn[15:12] == 4’b0111) ? store_out:
+            (i_insn[15:12] == 4’b1000) ? jump_out:
+            (i_insn[15:12] == 4’b1001) ? const_out:
+            (i_insn[15:12] == 4’b1010) ? shift_out:
+            (i_insn[15:12] == 4’b1100) ? jump_out:
+            (i_insn[15:12] == 4’b1101) ? hiconst_out:
+            (i_insn[15:12] == 4’b1111) ? trap_out;
 
       // divider
       wire [15:0] divider_o_remainder;
@@ -62,6 +45,19 @@ module lc4_alu(input  wire [15:0] i_insn,
       wire [15:0] adder_b;
       wire adder_cin;
       wire [15:0] adder_sum;
+  
+      assign {assign adder_a,
+              assign adder_b,
+              assign adder_cin} = 
+            (i_insn[15:12] == 4’b0000) ? {i_pc, {7'b0, i_insn[8:0]}, 1}:
+            (i_insn[15:12] == 4’b0001) ? (
+                                          (i_insn[5:3] == 3'b000) ? {i_r1data, i_r2data, 0}:
+                                          (i_insn[5:3] == 3'b010) ? {i_r1data, ~i_r2data, 1}:
+                                          {i_r1data, {11'b0, i_insn[4:0]}, 0}
+                                         ):
+            (i_insn[15:12] == 4’b0110) ? {i_r1data, {10'b0, i_insn[5:0]}, assign adder_cin = 0}:
+            (i_insn[15:12] == 4’b0111) ? {i_r1data, {10'b0, i_insn[5:0]}, 0}
+            (i_insn[15:12] == 4’b1100) ? {i_pc, {5'b0, i_insn[10:0]}, 1};
 
       cla16 adder(
             adder_a,
