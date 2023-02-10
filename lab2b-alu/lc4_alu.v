@@ -119,7 +119,7 @@ module lc4_alu(input  wire [15:0] i_insn,
             (i_insn[5:3] == 3'b010) ? i_r1data | i_r2data :
             (i_insn[5:3] == 3'b011) ? i_r1data ^ i_r2data :
             // default
-            i_r1data ^ {11'b0, i_insn[4:0]}; 
+            i_r1data ^ (i_insn[4] ? {11'b1, i_insn[4:0]} : {11'b0, i_insn[4:0]}); 
 
       // 0110 -- load
       wire [15:0] load_out;
@@ -135,7 +135,7 @@ module lc4_alu(input  wire [15:0] i_insn,
 
       // 1001 -- const
       wire [15:0] const_out;
-      assign const_out = {9'b0, i_insn[6:0]};
+      assign const_out = i_insn[8] ? {7'b1, i_insn[8:0]} : {7'b0, i_insn[8:0]}
 
       // 1010 -- shift
       wire [15:0] shift_out;
