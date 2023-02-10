@@ -49,38 +49,47 @@ module cla16
    input wire         cin,
    output wire [15:0] sum);
 
-  output wire [15:1] cout;
-  output wire [15:0] gin;
-  output wire [15:0] pin;
-  output wire [4:0] gout;
-  output wire [4:0] pout;
+  wire [15:0] gin;
+  wire [15:0] pin;
+  wire [15:0] cout;
+  wire [3:0] gout;
+  wire [3:0] pout;
+  // not used
+  wire gtop;
+  wire ptop;
+  
+  assign cout[0] = cin;
 
-  wire [3:0] cout2
-
-  integer i = 0;
+  genvar i;
   for (i = 0; i < 16; i = i+1) begin
     assign gin[i] = a[i] & b[i];
-    assign pin[i] = a[i] ^ b[i];
+    assign pin[i] = a[i] | b[i];
   end
 
+  // (1) compute windowed g/p
+  // (3) now given carry at 4*i, can get carries at 4*i + 1, 4*i + 2, 4*i + 3
   for (i = 0; i < 4; i = i+1) begin
-    gp4(gin[4 * i + 3 : 4 * i], pin[4 * i + 3 : 4 * i], 
-        cin, gout[i], pout[i], 
-        cout[4 * i + 3 : 4 * i + 1]);
+    gp4 layer_1_gp (
+        gin[4 * i + 3 : 4 * i], 
+        pin[4 * i + 3 : 4 * i], 
+        cout[4 * i], 
+        gout[i], 
+        pout[i], 
+        cout[4 * i + 3 : 4 * i + 1]
+    );
   end
 
-  gp4(gout[3:0], pout[3:0], cin, gout[4], pout[4], cout2[2:0]);
+  // (2) use windowed g/p to get the carries at 4, 8, 12
+  gp4 layer_2_gp (
+    gout[3:0], 
+    pout[3:0], 
+    cout[0], 
+    gtop, 
+    ptop, 
+    {cout[12], cout[8], cout[4]}
+  );
 
-  for (i = 0; i < 3; i = i+1) begin
-    assign cout[4 * i + 4] = cout[i];
-  end
-
-  for (i = 1; i < 4; i = i+1) begin
-    gp4(gin[4 * i + 3 : 4 * i], pin[4 * i + 3 : 4 * i], 
-        cout2[i - 1], gout[i], pout[i], 
-        cout[4 * i + 3 : 4 * i + 1]);
-  end
-
+  // now we have all the carries! xor.
   for (i = 0; i < 16; i = i+1) begin
     assign sum[i] = a[i] ^ b[i] ^ cout[i];
   end
