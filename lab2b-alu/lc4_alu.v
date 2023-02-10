@@ -106,9 +106,9 @@ module lc4_alu(input  wire [15:0] i_insn,
       // 0100 -- jsr
       wire [15:0] jsr_out;
       assign jsr_out = 
-            (i_insn[10] == 1'b0) ? i_r1data :
-            // i_insn[10] == 1'b1
-            (i_pc & 16'h8000) | ({5'b0, i_insn[10:0]} << 4); 
+            (i_insn[11] == 1'b0) ? i_r1data :
+            // i_insn[11] == 1'b1
+            (i_pc & 16'h8000) | (i_insn[10:0] << 4); 
 
       // 0101 -- logic
       wire [15:0] logic_out;
