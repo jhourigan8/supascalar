@@ -63,73 +63,6 @@ module lc4_alu(input  wire [15:0] i_insn,
       wire adder_cin;
       wire [15:0] adder_sum;
 
-      // mux to set operands
-      always_comb case (i_insn[15:12]) 
-            4'b0000:
-                  begin
-                        // PC + 1 + IMM9
-                        assign adder_a = i_pc;
-                        assign adder_b = {7'b0, i_insn[8:0]};
-                        assign adder_cin = 1;
-                  end
-            4'b0001:
-                  begin
-                        always_comb case (i_insn[5:3]) 
-                              3'b000: 
-                                    begin
-                                          // Rd + Rt
-                                          assign adder_a = i_r1data;
-                                          assign adder_b = i_r2data;
-                                          assign adder_cin = 0;
-                                    end
-                              3'b010: 
-                                    begin
-                                          // Rd - Rt
-                                          assign adder_a = i_r1data;
-                                          assign adder_b = ~i_r2data;
-                                          assign adder_cin = 1;
-                                    end
-                              default: 
-                                    begin
-                                          // Rd + IMM5
-                                          assign adder_a = i_r1data;
-                                          assign adder_b = {11'b0, i_insn[4:0]};
-                                          assign adder_cin = 0;
-                                    end
-                        endcase end
-                  end
-            // not needed for 0010
-            // no 0011
-            // not needed for 0100
-            // not needed for 0101
-            4'b0110:
-                  begin
-                        assign adder_a = i_r1data;
-                        assign adder_b = {10'b0, i_insn[5:0]};
-                        assign adder_cin = 0;
-                  end
-            4'b0111:
-                  begin
-                        assign adder_a = i_r1data;
-                        assign adder_b = {10'b0, i_insn[5:0]};
-                        assign adder_cin = 0;
-                  end
-            // not needed for b1000
-            // not needed for b1001
-            // not needed for 1010
-            // no 1011
-            4'b1100:
-                  begin
-                        // PC + 1 + IMM11
-                        assign adder_a = i_pc;
-                        assign adder_b = {5'b0, i_insn[10:0]};
-                        assign adder_cin = 1;
-                  end
-            // not needed for 1101
-            // no 1110
-            // note needed for 1111
-      endcase end
-
       cla16 adder(
             adder_a,
             adder_b,
@@ -143,91 +76,50 @@ module lc4_alu(input  wire [15:0] i_insn,
 
       // 0001 -- arith
       wire [15:0] arith_out;
-      always_comb case (i_insn[5:3]) 
-            3'b000: 
-                  begin
-                        assign arith_out = adder_sum;
-                  end
-            3'b001: 
-                  begin
-                        assign airth_out = i_r1data * i_r2data;
-                  end
-            3'b010: 
-                  begin
-                        assign arith_out = adder_sum;
-                  end
-            3'b011: 
-                  begin
-                        assign arith_out = divider_o_quotient;
-                  end
-            default: 
-                  begin
-                        assign arith_out = adder_sum;
-                  end
-      endcase end
+      assign arith_out = 
+            (i_insn[5:3] == 3'b000) ? adder_sum :
+            (i_insn[5:3] == 3'b001) ? i_r1data * i_r2data:
+            (i_insn[5:3] == 3'b010) ? adder_sum :
+            (i_insn[5:3] == 3'b011) ? divider_o_quotient :
+            // default
+            adder_sum;
 
       // 0010 -- cmp
       wire [15:0] cmp_out;
-      always_comb case (i_insn[8:7]) 
-            2'b00: 
-                  begin
-                        assign cmp_out = ($signed(i_r1data) > $signed(i_r2data)) ? 
-                              16'b1 : (i_r1data == i_r2data) ? 16'b0 : 16'hFFFF;
-                  end
-            2'b01: 
-                  begin
-                        assign cmp_out = (i_r1data > i_r2data) ? 
-                              16'b1 : (i_r1data == i_r2data) ? 16'b0 : 16'hFFFF;
-                  end
-            2'b10: 
-                  begin
-                        assign cmp_out = ($signed(i_r1data) > $signed({9'b0, i_insn[6:0]})) ? 
-                              16'b1 : (i_r1data == {9'b0, i_insn[6:0]}) ? 16'b0 : 16'hFFFF;
-                  end
-            2'b11: 
-                  begin
-                        assign cmp_out = (i_r1data > {9'b0, i_insn[6:0]}) ? 
-                              16'b1 : (i_r1data == {9'b0, i_insn[6:0]}) ? 16'b0 : 16'hFFFF;
-                  end
-      endcase end
+      assign cmp_out = 
+            (i_insn[8:7] == 2'b00) ? 
+                  (($signed(i_r1data) > $signed(i_r2data)) ? 
+                  16'b1 : (i_r1data == i_r2data) ? 
+                  16'b0 : 16'hFFFF) :
+            (i_insn[8:7] == 2'b01) ? 
+                  ((i_r1data > i_r2data) ? 
+                  16'b1 : (i_r1data == i_r2data) ? 
+                  16'b0 : 16'hFFFF) :
+            (i_insn[8:7] == 2'b10) ? 
+                  (($signed(i_r1data) > $signed({9'b0, i_insn[6:0]})) ? 
+                  16'b1 : (i_r1data == {9'b0, i_insn[6:0]}) ? 
+                  16'b0 : 16'hFFFF) :
+            // (i_insn[8:7] == 2'b11)
+                  ((i_r1data > {9'b0, i_insn[6:0]}) ? 
+                  16'b1 : (i_r1data == {9'b0, i_insn[6:0]}) ? 
+                  16'b0 : 16'hFFFF);
 
       // 0100 -- jsr
       wire [15:0] jsr_out;
-      always_comb case (i_insn[10]) 
-            1'b0:
-                  begin
-                        assign jsr_out = i_r1data;
-                  end
-            1'b1:
-                  begin
-                        assign jsr_out = (i_pc & 16'h8000) | ({5'b0, i_insn[10:0]} << 4);
-                  end
-      endcase end
+      assign jsr_out = 
+            (i_insn[10] == 1'b0) ? i_r1data :
+            // i_insn[10] == 1'b1
+            (i_pc & 16'h8000) | ({5'b0, i_insn[10:0]} << 4); 
 
       // 0101 -- logic
       wire [15:0] logic_out;
-      always_comb case (i_insn[5:3]) 
-            3'b000: 
-                  begin
-                        assign logic_out = i_r1data & i_r2data;
-                  end
-            3'b001: 
-                  begin
-                        assign logic_out = ~i_r1data;
-                  end
-            3'b010: 
-                  begin
-                        assign logic_out = i_r1data | i_r2data;
-                  end
-            3'b011: 
-                  begin
-                        assign logic_out = i_r1data ^ i_r2data;
-                  end
-            default: 
-                  begin
-                        assign logic_out = i_r1data ^ {11'b0, i_insn[4:0]};
-                  end
-      endcase end
+      assign logic_out = 
+            (i_insn[5:3] == 3'b000) ? i_r1data & i_r2data :
+            (i_insn[5:3] == 3'b001) ? ~i_r1data :
+            (i_insn[5:3] == 3'b010) ? i_r1data | i_r2data :
+            (i_insn[5:3] == 3'b011) ? i_r1data ^ i_r2data :
+            // default
+            i_r1data ^ {11'b0, i_insn[4:0]}; 
 
       // 0110 -- load
       wire [15:0] load_out;
@@ -247,37 +139,17 @@ module lc4_alu(input  wire [15:0] i_insn,
 
       // 1010 -- shift
       wire [15:0] shift_out;
-      always_comb case (i_insn[5:4]) 
-            2'b00: 
-                  begin
-                        assign shift_out = i_r1data << i_insn[3:0];
-                  end
-            2'b01: 
-                  begin
-                        assign shift_out = i_r1data >>> i_insn[3:0];
-                  end
-            2'b10: 
-                  begin
-                        assign shift_out = i_r1data >> i_insn[3:0];
-                  end
-            2'b11:
-                  begin
-                        assign shift_out = divider_o_remainder;
-                  end
-      endcase end
+      assign shift_out = 
+            (i_insn[5:4] == 2'b00) ? i_r1data << i_insn[3:0] :
+            (i_insn[5:4] == 2'b01) ? i_r1data >>> i_insn[3:0] :
+            (i_insn[5:4] == 2'b10) ? i_r1data >> i_insn[3:0] :
+            divider_o_remainder; // i_insn[5:4] == 2'b11
 
       // 1100 -- jump
       wire [15:0] jump_out;
-      always_comb case(i_insn[10]) 
-            1'b0:
-                  begin
-                        assign jump_out = i_r1data;
-                  end
-            1'b1:
-                  begin
-                        assign jump_out = adder_sum;
-                  end
-      endcase end
+      assign jump_out = 
+            (i_insn[10] == 1'b0) ? i_r1data : 
+            adder_sum; // i_insn[10] == 1'b1
 
       // 1101 -- hiconst
       wire [15:0] hiconst_out;
