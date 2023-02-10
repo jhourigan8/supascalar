@@ -95,8 +95,8 @@ module lc4_alu(input  wire [15:0] i_insn,
                   16'b1 : (i_r1data == i_r2data) ? 
                   16'b0 : 16'hFFFF) :
             (i_insn[8:7] == 2'b10) ? 
-                  (($signed(i_r1data) > $signed({9'b0, i_insn[6:0]})) ? 
-                  16'b1 : (i_r1data == {9'b0, i_insn[6:0]}) ? 
+                  (($signed(i_r1data) > $signed(i_insn[6] ? {9'h1FF, i_insn[6:0]} : {9'b0, i_insn[6:0]})) ? 
+                  16'b1 : (i_r1data == (i_insn[6] ? {9'h1FF, i_insn[6:0]} : {9'b0, i_insn[6:0]})) ? 
                   16'b0 : 16'hFFFF) :
             // (i_insn[8:7] == 2'b11)
                   ((i_r1data > {9'b0, i_insn[6:0]}) ? 
