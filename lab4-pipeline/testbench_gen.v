@@ -20,7 +20,7 @@ module test_processor;
 
    // Set this to non-zero to cause the testbench to halt at the first
    // failure. Often useful when debugging.
-   integer     exit_at_first_failure = 0;
+   integer     exit_at_first_failure = 1;
 
    // Inputs
    reg clk;
