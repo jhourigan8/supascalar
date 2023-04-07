@@ -1,4 +1,4 @@
-/* TODO: name and PennKeys of all group members here */
+/* Mike Zhou (mikezhou) and Jack Hourigan (hojack) */
 
 `timescale 1ns / 1ps
 
