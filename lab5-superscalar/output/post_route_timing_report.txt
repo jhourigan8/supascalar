@@ -1,0 +1,223 @@
+Copyright 1986-2020 Xilinx, Inc. All Rights Reserved.
+------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2020.2 (lin64) Build 3064766 Wed Nov 18 09:12:47 MST 2020
+| Date         : Sat Apr  8 17:22:55 2023
+| Host         : big09 running 64-bit openSUSE Leap 15.4
+| Command      : report_timing -file ./output/post_route_timing_report.txt
+| Design       : lc4_system
+| Device       : 7z020-clg484
+| Speed File   : -1  PRODUCTION 1.12 2019-11-22
+------------------------------------------------------------------------------------
+
+Timing Report
+
+Slack (VIOLATED) :        -2.892ns  (required time - arrival time)
+  Source:                 memory/memory/IDRAM_reg_0_12/CLKARDCLK
+                            (rising edge-triggered cell RAMB36E1 clocked by clk_processor_design_1_clk_wiz_0_0  {rise@0.000ns fall@28.625ns period=57.250ns})
+  Destination:            proc_inst/genblk1[0].genblk3[2].pipe_from_execute/state_reg[0]/D
+                            (rising edge-triggered cell FDRE clocked by clk_processor_design_1_clk_wiz_0_0  {rise@0.000ns fall@28.625ns period=57.250ns})
+  Path Group:             clk_processor_design_1_clk_wiz_0_0
+  Path Type:              Setup (Max at Slow Process Corner)
+  Requirement:            57.250ns  (clk_processor_design_1_clk_wiz_0_0 rise@57.250ns - clk_processor_design_1_clk_wiz_0_0 rise@0.000ns)
+  Data Path Delay:        59.851ns  (logic 16.634ns (27.792%)  route 43.217ns (72.208%))
+  Logic Levels:           61  (CARRY4=23 LUT2=1 LUT4=4 LUT5=15 LUT6=17 RAMB36E1=1)
+  Clock Path Skew:        -0.178ns (DCD - SCD + CPR)
+    Destination Clock Delay (DCD):    -1.498ns = ( 55.752 - 57.250 ) 
+    Source Clock Delay      (SCD):    -0.844ns
+    Clock Pessimism Removal (CPR):    0.476ns
+  Clock Uncertainty:      0.097ns  ((TSJ^2 + DJ^2)^1/2) / 2 + PE
+    Total System Jitter     (TSJ):    0.071ns
+    Discrete Jitter          (DJ):    0.180ns
+    Phase Error              (PE):    0.000ns
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock clk_processor_design_1_clk_wiz_0_0 rise edge)
+                                                      0.000     0.000 r  
+    Y9                                                0.000     0.000 r  CLOCK_100MHz (IN)
+                         net (fo=0)                   0.000     0.000    mmcm0/CLOCK_100MHz
+    Y9                   IBUF (Prop_ibuf_I_O)         1.490     1.490 r  mmcm0/clkin1_ibufg/O
+                         net (fo=1, routed)           1.285     2.775    mmcm0/clk_in1_design_1_clk_wiz_0_0
+    MMCME2_ADV_X0Y0      MMCME2_ADV (Prop_mmcme2_adv_CLKIN1_CLKOUT0)
+                                                     -7.343    -4.568 r  mmcm0/mmcm_adv_inst/CLKOUT0
+                         net (fo=1, routed)           1.855    -2.713    mmcm0/clk_processor_design_1_clk_wiz_0_0
+    BUFGCTRL_X0Y0        BUFG (Prop_bufg_I_O)         0.101    -2.612 r  mmcm0/clkout1_buf/O
+                         net (fo=793, routed)         1.767    -0.844    memory/memory/clk_processor
+    RAMB36_X3Y0          RAMB36E1                                     r  memory/memory/IDRAM_reg_0_12/CLKARDCLK
+  -------------------------------------------------------------------    -------------------
+    RAMB36_X3Y0          RAMB36E1 (Prop_ramb36e1_CLKARDCLK_CASCADEOUTA)
+                                                      2.872     2.028 r  memory/memory/IDRAM_reg_0_12/CASCADEOUTA
+                         net (fo=1, routed)           0.065     2.093    memory/memory/IDRAM_reg_0_12_n_0
+    RAMB36_X3Y1          RAMB36E1 (Prop_ramb36e1_CASCADEINA_DOADO[0])
+                                                      0.425     2.518 f  memory/memory/IDRAM_reg_1_12/DOADO[0]
+                         net (fo=2, routed)           2.088     4.607    memory/memory/IDRAM_reg_1_12_0[0]
+    SLICE_X15Y7          LUT4 (Prop_lut4_I2_O)        0.124     4.731 f  memory/memory/state[18]_i_2__1/O
+                         net (fo=2, routed)           0.596     5.327    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/dmem_out[6]
+    SLICE_X14Y10         LUT5 (Prop_lut5_I0_O)        0.124     5.451 f  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/state[18]_i_1__2/O
+                         net (fo=6, routed)           0.975     6.426    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/data0[12]
+    SLICE_X13Y16         LUT5 (Prop_lut5_I0_O)        0.124     6.550 f  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/arith_out1_i_4__0/O
+                         net (fo=57, routed)          1.160     7.710    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/state_reg[3]_26
+    SLICE_X30Y20         LUT2 (Prop_lut2_I0_O)        0.124     7.834 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry__0_i_2/O
+                         net (fo=1, routed)           0.000     7.834    proc_inst/genblk5[0].alu/divider/genblk1[0].iter/state[15]_i_30[2]
+    SLICE_X30Y20         CARRY4 (Prop_carry4_S[2]_CO[3])
+                                                      0.380     8.214 r  proc_inst/genblk5[0].alu/divider/genblk1[0].iter/sub_carry__0/CO[3]
+                         net (fo=96, routed)          1.436     9.650    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__2_29[0]
+    SLICE_X40Y22         LUT6 (Prop_lut6_I2_O)        0.124     9.774 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry_i_4/O
+                         net (fo=1, routed)           0.337    10.111    proc_inst/genblk5[0].alu/divider/genblk1[1].iter/sub_carry__0_0[0]
+    SLICE_X40Y23         CARRY4 (Prop_carry4_DI[0]_CO[3])
+                                                      0.526    10.637 r  proc_inst/genblk5[0].alu/divider/genblk1[1].iter/sub_carry/CO[3]
+                         net (fo=1, routed)           0.000    10.637    proc_inst/genblk5[0].alu/divider/genblk1[1].iter/sub_carry_n_0
+    SLICE_X40Y24         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    10.751 r  proc_inst/genblk5[0].alu/divider/genblk1[1].iter/sub_carry__0/CO[3]
+                         net (fo=68, routed)          1.427    12.178    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__2_30[0]
+    SLICE_X44Y25         LUT4 (Prop_lut4_I3_O)        0.150    12.328 f  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry_i_13__0/O
+                         net (fo=2, routed)           0.457    12.784    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry_i_13__0_n_0
+    SLICE_X44Y25         LUT6 (Prop_lut6_I1_O)        0.326    13.110 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry_i_3__0/O
+                         net (fo=1, routed)           0.498    13.609    proc_inst/genblk5[0].alu/divider/genblk1[2].iter/sub_carry__0_0[1]
+    SLICE_X40Y25         CARRY4 (Prop_carry4_DI[1]_CO[3])
+                                                      0.507    14.116 r  proc_inst/genblk5[0].alu/divider/genblk1[2].iter/sub_carry/CO[3]
+                         net (fo=1, routed)           0.000    14.116    proc_inst/genblk5[0].alu/divider/genblk1[2].iter/sub_carry_n_0
+    SLICE_X40Y26         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    14.230 r  proc_inst/genblk5[0].alu/divider/genblk1[2].iter/sub_carry__0/CO[3]
+                         net (fo=35, routed)          1.060    15.290    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry_1[0]
+    SLICE_X40Y22         LUT5 (Prop_lut5_I1_O)        0.124    15.414 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry_i_1__0/O
+                         net (fo=8, routed)           0.946    16.360    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry__0_i_10__5_0[1]
+    SLICE_X38Y26         LUT4 (Prop_lut4_I0_O)        0.124    16.484 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry_i_7__0/O
+                         net (fo=1, routed)           0.000    16.484    proc_inst/genblk5[0].alu/divider/genblk1[3].iter/sub_carry__0_1[1]
+    SLICE_X38Y26         CARRY4 (Prop_carry4_S[1]_CO[3])
+                                                      0.533    17.017 r  proc_inst/genblk5[0].alu/divider/genblk1[3].iter/sub_carry/CO[3]
+                         net (fo=1, routed)           0.000    17.017    proc_inst/genblk5[0].alu/divider/genblk1[3].iter/sub_carry_n_0
+    SLICE_X38Y27         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.117    17.134 r  proc_inst/genblk5[0].alu/divider/genblk1[3].iter/sub_carry__0/CO[3]
+                         net (fo=71, routed)          1.234    18.367    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__1[0]
+    SLICE_X40Y22         LUT5 (Prop_lut5_I1_O)        0.124    18.491 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry_i_2__2/O
+                         net (fo=3, routed)           0.647    19.138    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__2_i_2__7_0[0]
+    SLICE_X39Y27         LUT6 (Prop_lut6_I4_O)        0.124    19.262 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry_i_3__3/O
+                         net (fo=1, routed)           0.630    19.892    proc_inst/genblk5[0].alu/divider/genblk1[4].iter/sub_carry__0_0[1]
+    SLICE_X37Y26         CARRY4 (Prop_carry4_DI[1]_CO[3])
+                                                      0.507    20.399 r  proc_inst/genblk5[0].alu/divider/genblk1[4].iter/sub_carry/CO[3]
+                         net (fo=1, routed)           0.000    20.399    proc_inst/genblk5[0].alu/divider/genblk1[4].iter/sub_carry_n_0
+    SLICE_X37Y27         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    20.513 r  proc_inst/genblk5[0].alu/divider/genblk1[4].iter/sub_carry__0/CO[3]
+                         net (fo=52, routed)          1.159    21.671    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry_2[0]
+    SLICE_X39Y22         LUT5 (Prop_lut5_I1_O)        0.124    21.795 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry_i_1__3/O
+                         net (fo=9, routed)           0.500    22.296    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__2_i_2__6_0[1]
+    SLICE_X35Y22         LUT6 (Prop_lut6_I1_O)        0.124    22.420 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry_i_3__4/O
+                         net (fo=1, routed)           0.598    23.018    proc_inst/genblk5[0].alu/divider/genblk1[5].iter/sub_carry__0_0[1]
+    SLICE_X35Y23         CARRY4 (Prop_carry4_DI[1]_CO[3])
+                                                      0.507    23.525 r  proc_inst/genblk5[0].alu/divider/genblk1[5].iter/sub_carry/CO[3]
+                         net (fo=1, routed)           0.000    23.525    proc_inst/genblk5[0].alu/divider/genblk1[5].iter/sub_carry_n_0
+    SLICE_X35Y24         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    23.639 r  proc_inst/genblk5[0].alu/divider/genblk1[5].iter/sub_carry__0/CO[3]
+                         net (fo=59, routed)          1.100    24.739    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__2_31[0]
+    SLICE_X36Y27         LUT5 (Prop_lut5_I1_O)        0.124    24.863 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__1_i_2__3/O
+                         net (fo=9, routed)           0.577    25.440    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__2_i_2__5_0[7]
+    SLICE_X36Y22         LUT6 (Prop_lut6_I4_O)        0.124    25.564 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry__0_i_3__5/O
+                         net (fo=1, routed)           0.529    26.093    proc_inst/genblk5[0].alu/divider/genblk1[6].iter/state[9]_i_13[1]
+    SLICE_X36Y21         CARRY4 (Prop_carry4_DI[1]_CO[3])
+                                                      0.520    26.613 r  proc_inst/genblk5[0].alu/divider/genblk1[6].iter/sub_carry__0/CO[3]
+                         net (fo=58, routed)          1.245    27.858    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry_3[0]
+    SLICE_X35Y25         LUT5 (Prop_lut5_I1_O)        0.124    27.982 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__1_i_2__2/O
+                         net (fo=9, routed)           0.663    28.645    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry__0_i_10__2_0[8]
+    SLICE_X34Y21         LUT6 (Prop_lut6_I4_O)        0.124    28.769 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry__0_i_3__4/O
+                         net (fo=1, routed)           0.494    29.263    proc_inst/genblk5[0].alu/divider/genblk1[7].iter/state[8]_i_16[1]
+    SLICE_X33Y21         CARRY4 (Prop_carry4_DI[1]_CO[3])
+                                                      0.507    29.770 r  proc_inst/genblk5[0].alu/divider/genblk1[7].iter/sub_carry__0/CO[3]
+                         net (fo=59, routed)          1.545    31.315    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__1_0[0]
+    SLICE_X31Y26         LUT5 (Prop_lut5_I1_O)        0.124    31.439 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry__0_i_9__6/O
+                         net (fo=4, routed)           0.713    32.153    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry__0_i_9__6_n_0
+    SLICE_X32Y24         LUT6 (Prop_lut6_I4_O)        0.124    32.277 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry__0_i_1__6/O
+                         net (fo=1, routed)           0.567    32.844    proc_inst/genblk5[0].alu/divider/genblk1[8].iter/state[7]_i_22[3]
+    SLICE_X30Y22         CARRY4 (Prop_carry4_DI[3]_CO[3])
+                                                      0.396    33.240 r  proc_inst/genblk5[0].alu/divider/genblk1[8].iter/sub_carry__0/CO[3]
+                         net (fo=56, routed)          1.133    34.373    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry_4[0]
+    SLICE_X32Y24         LUT5 (Prop_lut5_I1_O)        0.124    34.497 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__2_i_2__2/O
+                         net (fo=10, routed)          0.757    35.253    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__2_i_2__3_0[9]
+    SLICE_X29Y27         LUT6 (Prop_lut6_I4_O)        0.124    35.377 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry__0_i_2__4/O
+                         net (fo=1, routed)           0.613    35.990    proc_inst/genblk5[0].alu/divider/genblk1[9].iter/o_remainder0_carry__1_i_1__13[2]
+    SLICE_X29Y25         CARRY4 (Prop_carry4_DI[2]_CO[3])
+                                                      0.398    36.388 r  proc_inst/genblk5[0].alu/divider/genblk1[9].iter/sub_carry__0/CO[3]
+                         net (fo=61, routed)          1.218    37.606    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/CO[0]
+    SLICE_X27Y21         LUT5 (Prop_lut5_I1_O)        0.124    37.730 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry_i_1__8/O
+                         net (fo=9, routed)           0.839    38.570    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__2_i_2__2_0[1]
+    SLICE_X30Y25         LUT6 (Prop_lut6_I1_O)        0.124    38.694 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry_i_3__9/O
+                         net (fo=1, routed)           0.362    39.055    proc_inst/genblk5[0].alu/divider/genblk1[10].iter/sub_carry__0_0[1]
+    SLICE_X28Y24         CARRY4 (Prop_carry4_DI[1]_CO[3])
+                                                      0.507    39.562 r  proc_inst/genblk5[0].alu/divider/genblk1[10].iter/sub_carry/CO[3]
+                         net (fo=1, routed)           0.009    39.571    proc_inst/genblk5[0].alu/divider/genblk1[10].iter/sub_carry_n_0
+    SLICE_X28Y25         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    39.685 r  proc_inst/genblk5[0].alu/divider/genblk1[10].iter/sub_carry__0/CO[3]
+                         net (fo=60, routed)          0.987    40.672    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry_5[0]
+    SLICE_X27Y21         LUT5 (Prop_lut5_I1_O)        0.124    40.796 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry_i_1__9/O
+                         net (fo=9, routed)           0.639    41.435    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry__0[1]
+    SLICE_X26Y20         LUT6 (Prop_lut6_I1_O)        0.124    41.559 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry_i_3__10/O
+                         net (fo=1, routed)           0.693    42.252    proc_inst/genblk5[0].alu/divider/genblk1[11].iter/sub_carry__0_0[1]
+    SLICE_X25Y23         CARRY4 (Prop_carry4_DI[1]_CO[3])
+                                                      0.507    42.759 r  proc_inst/genblk5[0].alu/divider/genblk1[11].iter/sub_carry/CO[3]
+                         net (fo=1, routed)           0.000    42.759    proc_inst/genblk5[0].alu/divider/genblk1[11].iter/sub_carry_n_0
+    SLICE_X25Y24         CARRY4 (Prop_carry4_CI_CO[3])
+                                                      0.114    42.873 r  proc_inst/genblk5[0].alu/divider/genblk1[11].iter/sub_carry__0/CO[3]
+                         net (fo=62, routed)          1.255    44.128    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__2_32[0]
+    SLICE_X30Y24         LUT5 (Prop_lut5_I1_O)        0.124    44.252 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__1_i_1__6/O
+                         net (fo=10, routed)          0.649    44.901    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__1_i_2__0_0[9]
+    SLICE_X24Y24         LUT6 (Prop_lut6_I1_O)        0.124    45.025 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry__0_i_3__11/O
+                         net (fo=1, routed)           0.472    45.497    proc_inst/genblk5[0].alu/divider/genblk1[12].iter/state[3]_i_9[1]
+    SLICE_X25Y22         CARRY4 (Prop_carry4_DI[1]_CO[3])
+                                                      0.507    46.004 r  proc_inst/genblk5[0].alu/divider/genblk1[12].iter/sub_carry__0/CO[3]
+                         net (fo=62, routed)          1.735    47.740    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry_6[0]
+    SLICE_X23Y25         LUT5 (Prop_lut5_I1_O)        0.124    47.864 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry__0_i_9__1/O
+                         net (fo=3, routed)           0.415    48.279    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry__0_i_9__1_n_0
+    SLICE_X23Y25         LUT6 (Prop_lut6_I4_O)        0.124    48.403 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry__0_i_1__1/O
+                         net (fo=1, routed)           0.422    48.825    proc_inst/genblk5[0].alu/divider/genblk1[13].iter/state[2]_i_10[3]
+    SLICE_X23Y24         CARRY4 (Prop_carry4_DI[3]_CO[3])
+                                                      0.385    49.210 r  proc_inst/genblk5[0].alu/divider/genblk1[13].iter/sub_carry__0/CO[3]
+                         net (fo=65, routed)          1.190    50.400    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/state_reg[13]_2[0]
+    SLICE_X22Y24         LUT5 (Prop_lut5_I1_O)        0.124    50.524 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__1_i_3__10/O
+                         net (fo=8, routed)           0.482    51.006    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__1_i_1__6_0[7]
+    SLICE_X22Y23         LUT6 (Prop_lut6_I1_O)        0.124    51.130 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry__0_i_4__13/O
+                         net (fo=1, routed)           0.543    51.673    proc_inst/genblk5[0].alu/divider/genblk1[14].iter/state[1]_i_9[0]
+    SLICE_X23Y21         CARRY4 (Prop_carry4_DI[0]_CO[3])
+                                                      0.526    52.199 r  proc_inst/genblk5[0].alu/divider/genblk1[14].iter/sub_carry__0/CO[3]
+                         net (fo=57, routed)          0.745    52.944    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/state_reg[14]_2[0]
+    SLICE_X23Y22         LUT5 (Prop_lut5_I1_O)        0.124    53.068 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__1_i_1__9/O
+                         net (fo=4, routed)           0.689    53.757    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/o_remainder0_carry__2_i_1__11_0[9]
+    SLICE_X23Y22         LUT6 (Prop_lut6_I1_O)        0.124    53.881 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/sub_carry__0_i_3__14/O
+                         net (fo=1, routed)           0.617    54.498    proc_inst/genblk5[0].alu/divider/genblk1[15].iter/state[0]_i_10[1]
+    SLICE_X21Y21         CARRY4 (Prop_carry4_DI[1]_CO[3])
+                                                      0.507    55.005 r  proc_inst/genblk5[0].alu/divider/genblk1[15].iter/sub_carry__0/CO[3]
+                         net (fo=20, routed)          1.013    56.018    proc_inst/genblk1[1].genblk2[2].pipe_from_decode/state_reg[14]_3[0]
+    SLICE_X19Y20         LUT4 (Prop_lut4_I2_O)        0.124    56.142 r  proc_inst/genblk1[1].genblk2[2].pipe_from_decode/state[0]_i_11/O
+                         net (fo=1, routed)           0.403    56.545    proc_inst/genblk1[0].genblk1[1].pipe_from_fetch/state[0]_i_2_0
+    SLICE_X19Y20         LUT6 (Prop_lut6_I0_O)        0.124    56.669 r  proc_inst/genblk1[0].genblk1[1].pipe_from_fetch/state[0]_i_6/O
+                         net (fo=1, routed)           0.727    57.396    proc_inst/genblk1[0].genblk1[1].pipe_from_fetch/state[0]_i_6_n_0
+    SLICE_X24Y18         LUT6 (Prop_lut6_I0_O)        0.124    57.520 r  proc_inst/genblk1[0].genblk1[1].pipe_from_fetch/state[0]_i_2/O
+                         net (fo=1, routed)           0.444    57.964    proc_inst/genblk1[0].genblk1[1].pipe_from_fetch/state[0]_i_2_n_0
+    SLICE_X24Y16         LUT6 (Prop_lut6_I0_O)        0.124    58.088 r  proc_inst/genblk1[0].genblk1[1].pipe_from_fetch/state[0]_i_1__1/O
+                         net (fo=2, routed)           0.920    59.007    proc_inst/genblk1[0].genblk3[2].pipe_from_execute/alu_res[0][2]_66[0]
+    SLICE_X20Y8          FDRE                                         r  proc_inst/genblk1[0].genblk3[2].pipe_from_execute/state_reg[0]/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock clk_processor_design_1_clk_wiz_0_0 rise edge)
+                                                     57.250    57.250 r  
+    Y9                                                0.000    57.250 r  CLOCK_100MHz (IN)
+                         net (fo=0)                   0.000    57.250    mmcm0/CLOCK_100MHz
+    Y9                   IBUF (Prop_ibuf_I_O)         1.420    58.670 r  mmcm0/clkin1_ibufg/O
+                         net (fo=1, routed)           1.162    59.832    mmcm0/clk_in1_design_1_clk_wiz_0_0
+    MMCME2_ADV_X0Y0      MMCME2_ADV (Prop_mmcme2_adv_CLKIN1_CLKOUT0)
+                                                     -7.438    52.394 r  mmcm0/mmcm_adv_inst/CLKOUT0
+                         net (fo=1, routed)           1.691    54.085    mmcm0/clk_processor_design_1_clk_wiz_0_0
+    BUFGCTRL_X0Y0        BUFG (Prop_bufg_I_O)         0.091    54.176 r  mmcm0/clkout1_buf/O
+                         net (fo=793, routed)         1.575    55.752    proc_inst/genblk1[0].genblk3[2].pipe_from_execute/clk_processor
+    SLICE_X20Y8          FDRE                                         r  proc_inst/genblk1[0].genblk3[2].pipe_from_execute/state_reg[0]/C
+                         clock pessimism              0.476    56.228    
+                         clock uncertainty           -0.097    56.131    
+    SLICE_X20Y8          FDRE (Setup_fdre_C_D)       -0.016    56.115    proc_inst/genblk1[0].genblk3[2].pipe_from_execute/state_reg[0]
+  -------------------------------------------------------------------
+                         required time                         56.115    
+                         arrival time                         -59.007    
+  -------------------------------------------------------------------
+                         slack                                 -2.892    
+
+
+
+

@@ -99,7 +99,7 @@ module lc4_processor(input wire         clk,             // main clock
    assign flush[0][4] = 2'h0;
    assign flush[1][0] = 2'h0;
    assign flush[1][1] = (gmispred[0] | gmispred[1]) ? 2'h2 : 2'h0;
-   assign flush[1][2] = (gmispred[0] | gmispred[1]) ? 2'h2 : (gstall != 2'h0) ? gstall : (gswitch != 2'h0) ? gswitch : 2'h0;
+   assign flush[1][2] = (gmispred[0] | gmispred[1]) ? 2'h2 : (gstall != 2'h0) ? 2'h1 : (gswitch != 2'h0) ? gswitch : 2'h0;
    assign flush[1][3] = gmispred[0] ? 2'h2 : 2'h0; 
    assign flush[1][4] = 2'h0;
    assign stall[0] = {1'b0, 1'b0, 1'b0, gstall != 2'h0, gstall != 2'h0};
@@ -108,14 +108,10 @@ module lc4_processor(input wire         clk,             // main clock
    assign switch[1] = {1'b0, 1'b0, 1'b0, gswitch != 2'h0, gswitch != 2'h0};
 
    // Pipeline variables: initialize and then simply pass on!
-   // switch?
-   // stall?
-   // Otherwise pass our values along.
-   // Initial values represent a NOP flush.
-   // TODO: stall logic!!!!
+   // Boilerplate for flush/stall/switch/regular input logic.
 
    // Variables initialized in fetch.
-   // Edge case: `stall_type` takes the value of `stall` if we stall here instead of some default.
+   // Edge case: `stall_type` takes the value of `flush` if we stall here instead of some default.
    genvar j;
    for (j = 0; j < 2; j=j+1) begin
       integer swj = j ? 0 : 1;
@@ -197,13 +193,6 @@ module lc4_processor(input wire         clk,             // main clock
       end
    end
 
-   // Code for each of the 5 stages is below.
-   // As boilerplate pipeline code is handled above we just have to do the following in each stage:
-   // (1) Initialize modules and registers to compute new values to enter into pipeline
-   // (2) Compute any bypasses
-   // (3) Compute any stall logic
-   // (4) Set any relevant output values
-
    /*** FETCH ***/
 
    // Set insn and pc pipeline values
@@ -239,20 +228,20 @@ module lc4_processor(input wire         clk,             // main clock
 
    for (j = 0; j < 2; j=j+1) begin
       lc4_decoder decoder (
-      .insn(insn[j][1]),
-      .r1sel(rssel[j][1]),
-      .r1re(rs_re[j][1]),
-      .r2sel(rtsel[j][1]),
-      .r2re(rt_re[j][1]),
-      .wsel(rdsel[j][1]),
-      .regfile_we(rd_we[j][1]),
-      .nzp_we(nzp_we[j][1]),
-      .select_pc_plus_one(select_pc_plus_one[j][1]),
-      .is_load(is_load[j][1]),
-      .is_store(is_store[j][1]),
-      .is_branch(is_branch[j][1]),
-      .is_control_insn(is_control_insn[j][1])
-   );
+         .insn(insn[j][1]),
+         .r1sel(rssel[j][1]),
+         .r1re(rs_re[j][1]),
+         .r2sel(rtsel[j][1]),
+         .r2re(rt_re[j][1]),
+         .wsel(rdsel[j][1]),
+         .regfile_we(rd_we[j][1]),
+         .nzp_we(nzp_we[j][1]),
+         .select_pc_plus_one(select_pc_plus_one[j][1]),
+         .is_load(is_load[j][1]),
+         .is_store(is_store[j][1]),
+         .is_branch(is_branch[j][1]),
+         .is_control_insn(is_control_insn[j][1])
+      );
    end
 
    lc4_regfile_ss regfile (
@@ -281,17 +270,31 @@ module lc4_processor(input wire         clk,             // main clock
       assign bypassed_rt_data[j][1] = rt_data[j][1];
    end
 
+   // rx_dep[j][k][i] = does insn[j][1] read rx from where insn[k][i] writes rd?
+   wire [2:0] rs_dep [1:0] [1:0];
+   wire [2:0] rt_dep [1:0] [1:0];
+   for (j = 0; j < 2; j = j + 1) begin
+      genvar i;
+      for (i = 1; i < 3; i = i + 1) begin
+         genvar k;
+         for (k = 0; k < 2; k = k + 1) begin
+            assign rs_dep[j][k][i] = (rs_re[j][1] & rd_we[k][i] & rssel[j][1] == rdsel[k][i]);
+            assign rt_dep[j][k][i] = (rt_re[j][1] & rd_we[k][i] & rtsel[j][1] == rdsel[k][i]);
+         end
+      end
+   end
+
    // Full stall: D.A load to use.
    assign gstall = 
-      is_load[0][2] & ((rs_re[0][1] & rssel[0][1] == rdsel[0][2]) | (rt_re[0][1] & rtsel[0][1] == rdsel[0][2] & ~is_store[0][1]) | is_branch[0][1]) ? 2'b11 : 
-      is_load[1][2] & ((rs_re[0][1] & rssel[0][1] == rdsel[1][2]) | (rt_re[0][1] & rtsel[0][1] == rdsel[1][2] & ~is_store[0][1]) | is_branch[0][1]) ? 2'b11 : 
+      is_load[1][2] & (rs_dep[0][1][2] | (rt_dep[0][1][2] & ~is_store[0][1]) | is_branch[0][1]) ? 2'b11 : 
+      is_load[0][2] & ((rs_dep[0][0][2] & ~rs_dep[0][1][2]) | (rt_dep[0][0][2] & ~rt_dep[0][1][2] & ~is_store[0][1]) | (is_branch[0][1] & ~nzp_we[1][2])) ? 2'b11 : 
       2'b00;
    // Switch: D.B needs value from D.A (including nzp bits), both insns need memory, or D.B load to use.
    assign gswitch = 
-      (rs_re[1][1] & rssel[1][1] == rdsel[0][1] & rd_we[0][1]) | (rt_re[1][1] &rtsel[1][1] == rdsel[0][1] & rd_we[0][1]) | (is_branch[1][1] & nzp_we[0][1]) ? 2'b01 :
+      rs_dep[1][0][1] | (~is_store[1][1] & rt_dep[1][0][1]) | (is_branch[1][1] & nzp_we[0][1]) ? 2'b01 :
       (is_store[0][1] | is_load[0][1]) & (is_store[1][1] | is_load[1][1]) ? 2'b01 :
-      is_load[0][2] & ((rs_re[1][1] & rssel[1][1] == rdsel[0][2]) | (rt_re[1][1] & rtsel[1][1] == rdsel[0][2] & ~is_store[1][1]) | is_branch[1][1]) ? 2'b11 : 
-      is_load[1][2] & ((rs_re[1][1] & rssel[1][1] == rdsel[1][2]) | (rt_re[1][1] & rtsel[1][1] == rdsel[1][2] & ~is_store[1][1]) | is_branch[1][1]) ? 2'b11 : 
+      is_load[1][2] & (rs_dep[1][1][2] | (rt_dep[1][1][2] & ~is_store[1][1]) | is_branch[1][1]) ? 2'b11 : 
+      is_load[0][2] & ((rs_dep[1][0][2] & ~rs_dep[1][1][2]) | (rt_dep[1][0][2] & ~rt_dep[1][1][2] & ~is_store[1][1]) | (is_branch[1][1] & ~nzp_we[1][2])) ? 2'b11 : 
       2'b00;
 
    /*** EXECUTE ***/
@@ -349,24 +352,24 @@ module lc4_processor(input wire         clk,             // main clock
       assign p_in[j][3] = ~n_in[j][3] & ~z_in[j][3];
    end
    // WM and MM bypass into rt only for store.
-   assign bypassed_rt_data[0][3] = 
-      rd_we[1][3] & rtsel[0][3] == rdsel[1][3] ? wdata[1][3] : 
-      rd_we[0][4] & rtsel[0][3] == rdsel[0][4] ? wdata[0][4] : 
-      rd_we[1][4] & rtsel[0][3] == rdsel[1][4] ? wdata[1][4] : 
-      rt_data[0][3];
    assign bypassed_rt_data[1][3] = 
-      rd_we[0][4] & rtsel[1][3] == rdsel[0][4] ? wdata[0][4] : 
+      rd_we[0][3] & rtsel[1][3] == rdsel[0][3] ? wdata[0][3] : 
       rd_we[1][4] & rtsel[1][3] == rdsel[1][4] ? wdata[1][4] : 
+      rd_we[0][4] & rtsel[1][3] == rdsel[0][4] ? wdata[0][4] : 
       rt_data[1][3];
+   assign bypassed_rt_data[0][3] = 
+      rd_we[1][4] & rtsel[0][3] == rdsel[1][4] ? wdata[1][4] : 
+      rd_we[0][4] & rtsel[0][3] == rdsel[0][4] ? wdata[0][4] : 
+      rt_data[0][3];
 
    // Old nzp values.
-   assign nzp[0][3] = nzp_we[1][3] ? {n_in[1][3], z_in[1][3], p_in[1][3]} : nzp[1][3];
-   assign nzp[1][3] = nzp_we[0][4] ? {n_in[0][4], z_in[0][4], p_in[0][4]} : nzp[0][4];
+   assign nzp[0][3] = nzp_we[1][4] ? {n_in[1][4], z_in[1][4], p_in[1][4]} : nzp[1][4];
+   assign nzp[1][3] = nzp_we[0][3] ? {n_in[0][3], z_in[0][3], p_in[0][3]} : nzp[0][3];
 
    // Dmem outputs.
    assign o_dmem_we = dmem_we[0][3] | dmem_we[1][3];
-   assign o_dmem_addr = dmem_we[0][3] ? dmem_addr[0][3] : dmem_addr[1][3];
-   assign o_dmem_towrite = dmem_we[0][3] ? dmem_out[0][3] : dmem_out[1][3];
+   assign o_dmem_addr = dmem_addr[0][3] | dmem_addr[1][3];
+   assign o_dmem_towrite = dmem_out[0][3] | dmem_out[1][3];
 
    /*** WRITE ***/
 
@@ -401,76 +404,78 @@ module lc4_processor(input wire         clk,             // main clock
    /*** DEBUGGING ***/
 
    always @(posedge gwe) begin
-      if ($time < 16'd5200)
+      /*
+      if ($time < 16'd4200)
          $display("--------------------------------------------------------------");
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("gmispred A    %h", gmispred[0]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("gmispred B    %h", gmispred[1]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("gstall        %h", gstall);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("gswitch       %h", gswitch);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("flush A       %h %h %h %h %h", flush[0][0], flush[0][1], flush[0][2], flush[0][3], flush[0][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("flush B       %h %h %h %h %h", flush[1][0], flush[1][1], flush[1][2], flush[1][3], flush[1][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("stall A       %h %h %h %h %h", stall[0][0], stall[0][1], stall[0][2], stall[0][3], stall[0][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("stall B       %h %h %h %h %h", stall[1][0], stall[1][1], stall[1][2], stall[1][3], stall[1][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("switch A      %h %h %h %h %h", switch[0][0], switch[0][1], switch[0][2], switch[0][3], switch[0][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("switch B      %h %h %h %h %h", switch[1][0], switch[1][1], switch[1][2], switch[1][3], switch[1][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("insn A        %h %h %h %h %h", insn[0][0], insn[0][1], insn[0][2], insn[0][3], insn[0][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("insn B        %h %h %h %h %h", insn[1][0], insn[1][1], insn[1][2], insn[1][3], insn[1][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("rs_data A     %h %h %h %h %h", rs_data[0][0], rs_data[0][1], rs_data[0][2], rs_data[0][3], rs_data[0][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("rs_data B     %h %h %h %h %h", rs_data[1][0], rs_data[1][1], rs_data[1][2], rs_data[1][3], rs_data[1][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("rt_data A     %h %h %h %h %h", rt_data[0][0], rt_data[0][1], rt_data[0][2], rt_data[0][3], rt_data[0][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("rt_data B     %h %h %h %h %h", rt_data[1][0], rt_data[1][1], rt_data[1][2], rt_data[1][3], rt_data[1][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("wdata A       %h %h %h %h %h", wdata[0][0], wdata[0][1], wdata[0][2], wdata[0][3], wdata[0][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("wdata B       %h %h %h %h %h", wdata[1][0], wdata[1][1], wdata[1][2], wdata[1][3], wdata[1][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("rssel A       %h    %h    %h    %h    %h", rssel[0][0], rssel[0][1], rssel[0][2], rssel[0][3], rssel[0][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("rssel B       %h    %h    %h    %h    %h", rssel[1][0], rssel[1][1], rssel[1][2], rssel[1][3], rssel[1][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("rtsel A       %h    %h    %h    %h    %h", rtsel[0][0], rtsel[0][1], rtsel[0][2], rtsel[0][3], rtsel[0][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("rtsel B       %h    %h    %h    %h    %h", rtsel[1][0], rtsel[1][1], rtsel[1][2], rtsel[1][3], rtsel[1][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("rdsel A       %h    %h    %h    %h    %h", rdsel[0][0], rdsel[0][1], rdsel[0][2], rdsel[0][3], rdsel[0][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("rdsel B       %h    %h    %h    %h    %h", rdsel[1][0], rdsel[1][1], rdsel[1][2], rdsel[1][3], rdsel[1][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("stall_type A  %h    %h    %h    %h    %h", stall_type[0][0], stall_type[0][1], stall_type[0][2], stall_type[0][3], stall_type[0][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("stall_type B  %h    %h    %h    %h    %h", stall_type[1][0], stall_type[1][1], stall_type[1][2], stall_type[1][3], stall_type[1][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("dmem_addr A   %h %h %h %h %h", dmem_addr[0][0], dmem_addr[0][1], dmem_addr[0][2], dmem_addr[0][3], dmem_addr[0][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("dmem_addr B   %h %h %h %h %h", dmem_addr[1][0], dmem_addr[1][1], dmem_addr[1][2], dmem_addr[1][3], dmem_addr[1][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("dmem_in A     %h %h %h %h %h", dmem_in[0][0], dmem_in[0][1], dmem_in[0][2], dmem_in[0][3], dmem_in[0][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("dmem_in B     %h %h %h %h %h", dmem_in[1][0], dmem_in[1][1], dmem_in[1][2], dmem_in[1][3], dmem_in[1][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("dmem_out A    %h %h %h %h %h", dmem_out[0][0], dmem_out[0][1], dmem_out[0][2], dmem_out[0][3], dmem_out[0][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("dmem_out B    %h %h %h %h %h", dmem_out[1][0], dmem_out[1][1], dmem_out[1][2], dmem_out[1][3], dmem_out[1][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("alu_res A     %h %h %h %h %h", alu_res[0][0], alu_res[0][1], alu_res[0][2], alu_res[0][3], alu_res[0][4]);
-      if ($time < 16'd5200)
+      if ($time < 16'd4200)
          $display("alu_res B     %h %h %h %h %h", alu_res[1][0], alu_res[1][1], alu_res[1][2], alu_res[1][3], alu_res[1][4]);
+      */
    end
 
 endmodule
