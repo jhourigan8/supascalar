@@ -77,4 +77,4 @@ module lc4_regfile_ss #(parameter n = 16)
    assign o_rs_data_B = reg_rs[1][0] | reg_rs[1][1] | reg_rs[1][2] | reg_rs[1][3] | reg_rs[1][4] | reg_rs[1][5] | reg_rs[1][6] | reg_rs[1][7];
    assign o_rt_data_B = reg_rt[1][0] | reg_rt[1][1] | reg_rt[1][2] | reg_rt[1][3] | reg_rt[1][4] | reg_rt[1][5] | reg_rt[1][6] | reg_rt[1][7];
 
-endmodule
+endmodule 

@@ -50,12 +50,6 @@ module lc4_processor(input wire         clk,             // main clock
    // Pipes A, B = 0, 1
    // Stages fetch, decode, execute, memory, write = 0, 1, 2, 3, 4
 
-   wire        gswitch;                        // is just B halted in decode?
-   wire        gstall;                         // are both A and B halted in decode?
-   wire        gmispred [1:0];                 // did we mispredict this branch in the execute stage?
-   wire [ 4:0] nop [1:0];                      // should this stage take a NOP input? 
-   wire [ 4:0] switch [1:0];                   // should this stage take switched input?
-   wire [ 4:0] stall [1:0];                    // should this stage take no new input?
    wire [15:0] insn [1:0] [4:0];               // instruction
    wire [15:0] pc [1:0] [4:0];                 // program counter
    wire [15:0] pc_plus_one [1:0] [4:0];        // program counter + 1
@@ -87,6 +81,32 @@ module lc4_processor(input wire         clk,             // main clock
    wire        z_in [1:0] [4:0];               // new z bit.
    wire        p_in [1:0] [4:0];               // new p bit.
 
+   // Stall logic! 
+   // In priority order, i.e. flush overrides stall overrides switch.
+   // 0 = no flush, 1 = superscalar, 2 = mispred, 3 = load to use
+
+   wire        gmispred [1:0];                 // did we mispredict this branch in the execute stage?
+   wire [ 1:0] gstall;                         // are both A and B halted in decode and why?
+   wire [ 1:0] gswitch;                        // is just B halted in decode and why?
+   wire [ 1:0] flush [1:0] [4:0];              // should this stage take a NOP flush input and why?
+   wire [ 4:0] stall [1:0];                    // should this stage take no new input? 
+   wire [ 4:0] switch [1:0];                   // should this stage take switched input?
+   
+   assign flush[0][0] = 2'h0;
+   assign flush[0][1] = (gmispred[0] | gmispred[1]) ? 2'h2 : 2'h0;
+   assign flush[0][2] = (gmispred[0] | gmispred[1]) ? 2'h2 : (gstall != 2'h0) ? gstall : 2'h0;
+   assign flush[0][3] = 2'h0; 
+   assign flush[0][4] = 2'h0;
+   assign flush[1][0] = 2'h0;
+   assign flush[1][1] = (gmispred[0] | gmispred[1]) ? 2'h2 : 2'h0;
+   assign flush[1][2] = (gmispred[0] | gmispred[1]) ? 2'h2 : (gstall != 2'h0) ? gstall : (gswitch != 2'h0) ? gswitch : 2'h0;
+   assign flush[1][3] = gmispred[0] ? 2'h2 : 2'h0; 
+   assign flush[1][4] = 2'h0;
+   assign stall[0] = {1'b0, 1'b0, 1'b0, gstall != 2'h0, gstall != 2'h0};
+   assign stall[1] = {1'b0, 1'b0, 1'b0, gstall != 2'h0, gstall != 2'h0};
+   assign switch[0] = {1'b0, 1'b0, 1'b0, gswitch != 2'h0, gswitch != 2'h0};
+   assign switch[1] = {1'b0, 1'b0, 1'b0, gswitch != 2'h0, gswitch != 2'h0};
+
    // Pipeline variables: initialize and then simply pass on!
    // switch?
    // stall?
@@ -96,61 +116,85 @@ module lc4_processor(input wire         clk,             // main clock
 
    // Variables initialized in fetch.
    // Edge case: `stall_type` takes the value of `stall` if we stall here instead of some default.
-   genvar i;
-   for (i = 0; i < 4; i=i+1) begin
-      Nbit_reg #(
-         16 + 16 + 16 + 2, 
-         {16'h0000, 16'h8200, 16'h8201, 2'h2}
-      ) pipe_from_fetch (
-         .in(
-            {insn[i], pc[i], pc_plus_one[i], stall_type[i]}
-         ), 
-         .out(
-            {insn[i+1], pc[i+1], pc_plus_one[i+1], stall_type[i+1]}),
-         .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst)
-      );
-   end
+   genvar j;
+   for (j = 0; j < 2; j=j+1) begin
+      integer swj = j ? 0 : 1;
+      genvar i;
+      for (i = 0; i < 4; i=i+1) begin
+         integer swi = j ? i : i+1;
+         Nbit_reg #(
+            16 + 16 + 16 + 2, 
+            {16'h0000, 16'h8200, 16'h8201, 2'h2}
+         ) pipe_from_fetch (
+            .in(
+               (flush[j][i+1] != 2'h0) ? {16'h0000, 16'h8200, 16'h8201, flush[j][i+1]} :
+               stall[j][i+1] ? {insn[j][i+1], pc[j][i+1], pc_plus_one[j][i+1], stall_type[j][i+1]} :
+               switch[j][i+1] ? {insn[swj][swi], pc[swj][swi], pc_plus_one[swj][swi], stall_type[swj][swi]} :
+               {insn[j][i], pc[j][i], pc_plus_one[j][i], stall_type[j][i]}
+            ), 
+            .out(
+               {insn[j][i+1], pc[j][i+1], pc_plus_one[j][i+1], stall_type[j][i+1]}),
+            .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst)
+         );
+      end
 
-   // Variables initialized in decode.
-   // Edge case: `rt_data` and `rs_data` are passed different values which are bypassed if needed.
-   for (i = 1; i < 4; i=i+1) begin
-      Nbit_reg #(
-         3 + 3 + 3 + 1 + 1 + 1 + 16 + 16 + 1 + 1 + 1 + 1 + 1 + 1, 
-         {3'h0, 3'h0, 3'h0, 1'h0, 1'h0, 1'h0, 16'h0000, 16'h0000, 1'h0, 1'h0, 1'h0, 1'h0, 1'h0, 1'h0}
-      ) pipe_from_decode (
-         .in(
-            {rssel[i], rtsel[i], rdsel[i], rs_re[i], rt_re[i], rd_we[i], bypassed_rs_data[i], bypassed_rt_data[i], 
-             nzp_we[i], select_pc_plus_one[i], is_load[i], is_store[i], is_branch[i], is_control_insn[i]}
-         ), 
-         .out(
-            {rssel[i+1], rtsel[i+1], rdsel[i+1], rs_re[i+1], rt_re[i+1], rd_we[i+1], rs_data[i+1], rt_data[i+1], 
-             nzp_we[i+1], select_pc_plus_one[i+1], is_load[i+1], is_store[i+1], is_branch[i+1], is_control_insn[i+1]}),
-         .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst)
-      );
-   end
+      // Variables initialized in decode.
+      // Edge case: `rt_data` and `rs_data` are passed different values which are bypassed if needed.
+      for (i = 1; i < 4; i=i+1) begin
+         integer swi = j ? i+1 : i;
+         Nbit_reg #(
+            3 + 3 + 3 + 1 + 1 + 1 + 16 + 16 + 1 + 1 + 1 + 1 + 1 + 1, 
+            {3'h0, 3'h0, 3'h0, 1'h0, 1'h0, 1'h0, 16'h0000, 16'h0000, 1'h0, 1'h0, 1'h0, 1'h0, 1'h0, 1'h0}
+         ) pipe_from_decode (
+            .in(
+               (flush[j][i+1] != 2'h0) ? {3'h0, 3'h0, 3'h0, 1'h0, 1'h0, 1'h0, 16'h0000, 16'h0000, 1'h0, 1'h0, 1'h0, 1'h0, 1'h0, 1'h0} :
+               stall[j][i+1] ? {rssel[j][i+1], rtsel[j][i+1], rdsel[j][i+1], rs_re[j][i+1], rt_re[j][i+1], rd_we[j][i+1], rs_data[j][i+1], rt_data[j][i+1], 
+                  nzp_we[j][i+1], select_pc_plus_one[j][i+1], is_load[j][i+1], is_store[j][i+1], is_branch[j][i+1], is_control_insn[j][i+1]} :
+               switch[j][i+1] ? {rssel[swj][swi], rtsel[swj][swi], rdsel[swj][swi], rs_re[swj][swi], rt_re[swj][swi], rd_we[swj][swi], bypassed_rs_data[swj][swi], bypassed_rt_data[swj][swi], 
+                  nzp_we[swj][swi], select_pc_plus_one[swj][swi], is_load[swj][swi], is_store[swj][swi], is_branch[swj][swi], is_control_insn[swj][swi]} :
+               {rssel[j][i], rtsel[j][i], rdsel[j][i], rs_re[j][i], rt_re[j][i], rd_we[j][i], bypassed_rs_data[j][i], bypassed_rt_data[j][i], 
+                  nzp_we[j][i], select_pc_plus_one[j][i], is_load[j][i], is_store[j][i], is_branch[j][i], is_control_insn[j][i]}
+            ), 
+            .out(
+               {rssel[j][i+1], rtsel[j][i+1], rdsel[j][i+1], rs_re[j][i+1], rt_re[j][i+1], rd_we[j][i+1], rs_data[j][i+1], rt_data[j][i+1], 
+                  nzp_we[j][i+1], select_pc_plus_one[j][i+1], is_load[j][i+1], is_store[j][i+1], is_branch[j][i+1], is_control_insn[j][i+1]}),
+            .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst)
+         );
+      end
 
-   // Variables initialized in execute.
-   for (i = 2; i < 4; i=i+1) begin
-      Nbit_reg #(16, 16'h0000) pipe_from_execute (
-         .in(alu_res[i]), 
-         .out(alu_res[i+1]), 
-         .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst)
-      );
-   end
+      // Variables initialized in execute.
+      for (i = 2; i < 4; i=i+1) begin
+         integer swi = j ? i+1 : i;
+         Nbit_reg #(16, 16'h0000) pipe_from_execute (
+            .in(
+               (flush[j][i+1] != 2'h0) ? 16'h0000 :
+               stall[j][i+1] ? alu_res[j][i+1] :
+               switch[j][i+1] ? alu_res[swj][swi] :
+               alu_res[j][i]
+            ), 
+            .out(alu_res[j][i+1]), 
+            .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst)
+         );
+      end
 
-   // Variables initialized in memory.
-   for (i = 3; i < 4; i=i+1) begin
-      Nbit_reg #(
-         16 + 1 + 16 + 16 + 16 + 3 + 1 + 1 + 1, 
-         {16'h0000, 1'h0, 16'h0000, 16'h0000, 16'h0000, 3'h0, 1'h0, 1'h0, 1'h0}
-      ) pipe_from_memory (
-         .in(
-            {dmem_in[i], dmem_we[i], dmem_addr[i], dmem_out[i], wdata[i], nzp[i], n_in[i], z_in[i], p_in[i]}
-         ), 
-         .out(
-            {dmem_in[i+1], dmem_we[i+1], dmem_addr[i+1], dmem_out[i+1], wdata[i+1], nzp[i+1], n_in[i+1], z_in[i+1], p_in[i+1]}),
-         .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst)
-      );
+      // Variables initialized in memory.
+      for (i = 3; i < 4; i=i+1) begin
+         integer swi = j ? i+1 : i;
+         Nbit_reg #(
+            16 + 1 + 16 + 16 + 16 + 3 + 1 + 1 + 1, 
+            {16'h0000, 1'h0, 16'h0000, 16'h0000, 16'h0000, 3'h0, 1'h0, 1'h0, 1'h0}
+         ) pipe_from_memory (
+            .in(
+               (flush[j][i+1] != 2'h0) ? {16'h0000, 1'h0, 16'h0000, 16'h0000, 16'h0000, 3'h0, 1'h0, 1'h0, 1'h0} :
+               stall[j][i+1] ? {dmem_in[j][i+1], dmem_we[j][i+1], dmem_addr[j][i+1], dmem_out[j][i+1], wdata[j][i+1], nzp[j][i+1], n_in[j][i+1], z_in[j][i+1], p_in[j][i+1]} :
+               switch[j][i+1] ? {dmem_in[swj][swi], dmem_we[swj][swi], dmem_addr[swj][swi], dmem_out[swj][swi], wdata[swj][swi], nzp[swj][swi], n_in[swj][swi], z_in[swj][swi], p_in[swj][swi]} :
+               {dmem_in[j][i], dmem_we[j][i], dmem_addr[j][i], dmem_out[j][i], wdata[j][i], nzp[j][i], n_in[j][i], z_in[j][i], p_in[j][i]}
+            ), 
+            .out(
+               {dmem_in[j][i+1], dmem_we[j][i+1], dmem_addr[j][i+1], dmem_out[j][i+1], wdata[j][i+1], nzp[j][i+1], n_in[j][i+1], z_in[j][i+1], p_in[j][i+1]}),
+            .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst)
+         );
+      end
    end
 
    // Code for each of the 5 stages is below.
@@ -162,13 +206,22 @@ module lc4_processor(input wire         clk,             // main clock
 
    /*** FETCH ***/
 
+   // Set insn and pc pipeline values
    assign insn[0][0] = i_cur_insn_A;
    assign insn[1][0] = i_cur_insn_B;
    cla16 pc_inc_A(pc[0][0], 16'b0, 1'b1, pc_plus_one[0][0]);
    assign pc[1][0] = pc_plus_one[0][0];
    cla16 pc_inc_B(pc[1][0], 16'b0, 1'b1, pc_plus_one[1][0]);
+
+   // Next PC priority order: mispred A, mispred B, stall, switch, default
    Nbit_reg #(16, 16'h8200) pc_reg (
-      .in(mispred ? alu_res[2] : stall ? pc[0][0] : switch ? pc[1][0] : pc_plus_one[1][0]), 
+      .in(
+         gmispred[0] ? alu_res[0][2] : 
+         gmispred[1] ? alu_res[1][2] :
+         gstall ? pc[0][0] : 
+         gswitch ? pc[1][0] : 
+         pc_plus_one[1][0]
+      ), 
       .out(pc[0][0]), 
       .clk(clk), 
       .we(1'b1), 
@@ -176,16 +229,14 @@ module lc4_processor(input wire         clk,             // main clock
       .rst(rst)
    );
 
-   // This is a real instruction -> stall_type 0
-   assign stall_type[0][0] = 2'b0;
-   // Misprediction flush.
-   assign stall[0] = mispred ? 2'h2 : 2'h0;
+   // Real instructions -> default stall_type 0
+   assign stall_type[0][0] = 2'h0;
+   assign stall_type[1][0] = 2'h0;
 
    assign o_cur_pc = pc[0][0];
    
    /*** DECODE ***/
 
-   genvar j;
    for (j = 0; j < 2; j=j+1) begin
       lc4_decoder decoder (
       .insn(insn[j][1]),
@@ -218,51 +269,69 @@ module lc4_processor(input wire         clk,             // main clock
       .o_rt_data_B(rt_data[1][1]),
       .i_rd_A(rdsel[0][4]),
       .i_wdata_A(wdata[0][4]),
-      .i_rd_we_A(rd_we[0][4])
+      .i_rd_we_A(rd_we[0][4]),
       .i_rd_B(rdsel[1][4]),
       .i_wdata_B(wdata[1][4]),
       .i_rd_we_B(rd_we[1][4])
    );
 
    // WD bypass handled by the regfile.
+   for (j = 0; j < 2; j=j+1) begin
+      assign bypassed_rs_data[j][1] = rs_data[j][1];
+      assign bypassed_rt_data[j][1] = rt_data[j][1];
+   end
 
-   // Misprediction flush.
-   assign stall[1] = mispred ? 2'h2 : 2'h0;
+   // Full stall: D.A load to use.
+   assign gstall = 
+      is_load[0][2] & ((rs_re[0][1] & rssel[0][1] == rdsel[0][2]) | (rt_re[0][1] & rtsel[0][1] == rdsel[0][2] & ~is_store[0][1]) | is_branch[0][1]) ? 2'b11 : 
+      is_load[1][2] & ((rs_re[0][1] & rssel[0][1] == rdsel[1][2]) | (rt_re[0][1] & rtsel[0][1] == rdsel[1][2] & ~is_store[0][1]) | is_branch[0][1]) ? 2'b11 : 
+      2'b00;
+   // Switch: D.B needs value from D.A (including nzp bits), both insns need memory, or D.B load to use.
+   assign gswitch = 
+      (rs_re[1][1] & rssel[1][1] == rdsel[0][1] & rd_we[0][1]) | (rt_re[1][1] &rtsel[1][1] == rdsel[0][1] & rd_we[0][1]) | (is_branch[1][1] & nzp_we[0][1]) ? 2'b01 :
+      (is_store[0][1] | is_load[0][1]) & (is_store[1][1] | is_load[1][1]) ? 2'b01 :
+      is_load[0][2] & ((rs_re[1][1] & rssel[1][1] == rdsel[0][2]) | (rt_re[1][1] & rtsel[1][1] == rdsel[0][2] & ~is_store[1][1]) | is_branch[1][1]) ? 2'b11 : 
+      is_load[1][2] & ((rs_re[1][1] & rssel[1][1] == rdsel[1][2]) | (rt_re[1][1] & rtsel[1][1] == rdsel[1][2] & ~is_store[1][1]) | is_branch[1][1]) ? 2'b11 : 
+      2'b00;
 
    /*** EXECUTE ***/
 
    // What the nzp bits would be here.
-   wire [2:0] nzp2 = stall_type[3] == 2'h2 ? (nzp_we[4] ? {n_in[4], z_in[4], p_in[4]} : nzp[4]) : (nzp_we[3] ? {n_in[3], z_in[3], p_in[3]} : nzp[3]);
-   // Check if we mispredicted.
-   wire mispred;
-   assign mispred = is_control_insn[2] | (is_branch[2] & ((insn[2][11] & nzp2[2]) | (insn[2][10] & nzp2[1]) | (insn[2][9] & nzp2[0])));
+   // Even if ahead is NOP it still will have correct NZP values.
+   wire [2:0] nzp_ahead [1:0];
+   assign nzp_ahead[0] = nzp_we[1][3] ? {n_in[1][3], z_in[1][3], p_in[1][3]} : nzp[1][3];
+   // Assuming A doesn't write if I need nzp bits?
+   assign nzp_ahead[1] = nzp_ahead[0];
 
-   lc4_alu alu (
-      .i_insn(insn[2]),
-      .i_r1data(bypassed_rs_data[2]),
-      .i_r2data(bypassed_rt_data[2]),
-      .i_pc(pc[2]),
-      .o_result(alu_res[2])
-   );
+   for (j = 0; j < 2; j=j+1) begin
+      // Check if we mispredicted.
+      assign gmispred[j] = is_control_insn[j][2] | (is_branch[j][2] & ((insn[j][2][11] & nzp_ahead[j][2]) | (insn[j][2][10] & nzp_ahead[j][1]) | (insn[j][2][9] & nzp_ahead[j][0])));
+      // MX and WX bypass into rs.
+      assign bypassed_rs_data[j][2] = 
+         (rssel[j][2] == rdsel[1][3] & rd_we[1][3]) ? wdata[1][3] : 
+         (rssel[j][2] == rdsel[0][3] & rd_we[0][3]) ? wdata[0][3] : 
+         (rssel[j][2] == rdsel[1][4] & rd_we[1][4]) ? wdata[1][4] : 
+         (rssel[j][2] == rdsel[0][4] & rd_we[0][4]) ? wdata[0][4] : 
+         rs_data[j][2];
+      // MX and WX bypass into rt.
+      assign bypassed_rt_data[j][2] = 
+         (rtsel[j][2] == rdsel[1][3] & rd_we[1][3]) ? wdata[1][3] : 
+         (rtsel[j][2] == rdsel[0][3] & rd_we[0][3]) ? wdata[0][3] : 
+         (rtsel[j][2] == rdsel[1][4] & rd_we[1][4]) ? wdata[1][4] : 
+         (rtsel[j][2] == rdsel[0][4] & rd_we[0][4]) ? wdata[0][4] : 
+         rt_data[j][2];
 
-   // MX and WX bypass into rs.
-   assign bypassed_rs_data[2] = 
-      (rssel[2] == rdsel[3] & rd_we[3]) ? wdata[3] : 
-      (rssel[2] == rdsel[4] & rd_we[4]) ? wdata[4] :
-      rs_data[2];
-
-   // MX and WX bypass into rt.
-   assign bypassed_rt_data[2] = 
-      (rtsel[2] == rdsel[3] & rd_we[3]) ? wdata[3] : 
-      (rtsel[2] == rdsel[4] & rd_we[4]) ? wdata[4] :
-      rt_data[2];
-
-   // Load to use stall. Includes stalling for branch decision.
-   assign stall[2] = is_load[3] & ((rs_re[2] & rssel[2] == rdsel[3]) | (rt_re[2] & rtsel[2] == rdsel[3] & ~is_store[2]) | is_branch[2]) ? 2'b11 : 2'b00;
+      lc4_alu alu (
+         .i_insn(insn[j][2]),
+         .i_r1data(bypassed_rs_data[j][2]),
+         .i_r2data(bypassed_rt_data[j][2]),
+         .i_pc(pc[j][2]),
+         .o_result(alu_res[j][2])
+      );
+   end
 
    /*** MEMORY ***/
 
-   genvar j;
    for (j = 0; j < 2; j=j+1) begin
       // Set ppline stuff.
       assign dmem_we[j][3] = is_store[j][3];
@@ -273,14 +342,23 @@ module lc4_processor(input wire         clk,             // main clock
 
       // No bypass for rs.
       assign bypassed_rs_data[j][3] = rs_data[j][3];
-      // WM bypass into rt only for store.
-      assign bypassed_rt_data[j][3] = rd_we[j][4] & rtsel[j][3] == rdsel[j][4] ? wdata[j][4] : rt_data[j][3];
 
       // New nzp bits.
       assign n_in[j][3] = (wdata[j][3][15] == 1'b1);
       assign z_in[j][3] = (wdata[j][3] == 16'b0);
       assign p_in[j][3] = ~n_in[j][3] & ~z_in[j][3];
    end
+   // WM and MM bypass into rt only for store.
+   assign bypassed_rt_data[0][3] = 
+      rd_we[1][3] & rtsel[0][3] == rdsel[1][3] ? wdata[1][3] : 
+      rd_we[0][4] & rtsel[0][3] == rdsel[0][4] ? wdata[0][4] : 
+      rd_we[1][4] & rtsel[0][3] == rdsel[1][4] ? wdata[1][4] : 
+      rt_data[0][3];
+   assign bypassed_rt_data[1][3] = 
+      rd_we[0][4] & rtsel[1][3] == rdsel[0][4] ? wdata[0][4] : 
+      rd_we[1][4] & rtsel[1][3] == rdsel[1][4] ? wdata[1][4] : 
+      rt_data[1][3];
+
    // Old nzp values.
    assign nzp[0][3] = nzp_we[1][3] ? {n_in[1][3], z_in[1][3], p_in[1][3]} : nzp[1][3];
    assign nzp[1][3] = nzp_we[0][4] ? {n_in[0][4], z_in[0][4], p_in[0][4]} : nzp[0][4];
@@ -320,55 +398,79 @@ module lc4_processor(input wire         clk,             // main clock
    assign test_dmem_addr_B = dmem_addr[1][4];
    assign test_dmem_data_B = is_store[1][4] ? dmem_out[1][4] : (is_load[1][4] ? dmem_in[1][4] : 16'h0000);
 
-   /* Add $display(...) calls in the always block below to
-    * print out debug information at the end of every cycle.
-    *
-    * You may also use if statements inside the always block
-    * to conditionally print out information.
-    */
+   /*** DEBUGGING ***/
+
    always @(posedge gwe) begin
-      // $display("%d %h %h %h %h %h", $time, f_pc, d_pc, e_pc, m_pc, test_cur_pc);
-      // if (o_dmem_we)
-      //   $display("%d STORE %h <= %h", $time, o_dmem_addr, o_dmem_towrite);
-
-      // Start each $display() format string with a %d argument for time
-      // it will make the output easier to read.  Use %b, %h, and %d
-      // for binary, hex, and decimal output of additional variables.
-      // You do not need to add a \n at the end of your format string.
-      // $display("%d ...", $time);
-
-      // Try adding a $display() call that prints out the PCs of
-      // each pipeline stage in hex.  Then you can easily look up the
-      // instructions in the .asm files in test_data.
-
-      // basic if syntax:
-      // if (cond) begin
-      //    ...;
-      //    ...;
-      // end
-
-      // Set a breakpoint on the empty $display() below
-      // to step through your pipeline cycle-by-cycle.
-      // You'll need to rewind the simulation to start
-      // stepping from the beginning.
-
-      // You can also simulate for XXX ns, then set the
-      // breakpoint to start stepping midway through the
-      // testbench.  Use the $time printouts you added above (!)
-      // to figure out when your problem instruction first
-      // enters the fetch stage.  Rewind your simulation,
-      // run it for that many nanoseconds, then set
-      // the breakpoint.
-
-      // In the objects view, you can change the values to
-      // hexadecimal by selecting all signals (Ctrl-A),
-      // then right-click, and select Radix->Hexadecimal.
-
-      // To see the values of wires within a module, select
-      // the module in the hierarchy in the "Scopes" pane.
-      // The Objects pane will update to display the wires
-      // in that module.
-
-      //$display();
+      if ($time < 16'd5200)
+         $display("--------------------------------------------------------------");
+      if ($time < 16'd5200)
+         $display("gmispred A    %h", gmispred[0]);
+      if ($time < 16'd5200)
+         $display("gmispred B    %h", gmispred[1]);
+      if ($time < 16'd5200)
+         $display("gstall        %h", gstall);
+      if ($time < 16'd5200)
+         $display("gswitch       %h", gswitch);
+      if ($time < 16'd5200)
+         $display("flush A       %h %h %h %h %h", flush[0][0], flush[0][1], flush[0][2], flush[0][3], flush[0][4]);
+      if ($time < 16'd5200)
+         $display("flush B       %h %h %h %h %h", flush[1][0], flush[1][1], flush[1][2], flush[1][3], flush[1][4]);
+      if ($time < 16'd5200)
+         $display("stall A       %h %h %h %h %h", stall[0][0], stall[0][1], stall[0][2], stall[0][3], stall[0][4]);
+      if ($time < 16'd5200)
+         $display("stall B       %h %h %h %h %h", stall[1][0], stall[1][1], stall[1][2], stall[1][3], stall[1][4]);
+      if ($time < 16'd5200)
+         $display("switch A      %h %h %h %h %h", switch[0][0], switch[0][1], switch[0][2], switch[0][3], switch[0][4]);
+      if ($time < 16'd5200)
+         $display("switch B      %h %h %h %h %h", switch[1][0], switch[1][1], switch[1][2], switch[1][3], switch[1][4]);
+      if ($time < 16'd5200)
+         $display("insn A        %h %h %h %h %h", insn[0][0], insn[0][1], insn[0][2], insn[0][3], insn[0][4]);
+      if ($time < 16'd5200)
+         $display("insn B        %h %h %h %h %h", insn[1][0], insn[1][1], insn[1][2], insn[1][3], insn[1][4]);
+      if ($time < 16'd5200)
+         $display("rs_data A     %h %h %h %h %h", rs_data[0][0], rs_data[0][1], rs_data[0][2], rs_data[0][3], rs_data[0][4]);
+      if ($time < 16'd5200)
+         $display("rs_data B     %h %h %h %h %h", rs_data[1][0], rs_data[1][1], rs_data[1][2], rs_data[1][3], rs_data[1][4]);
+      if ($time < 16'd5200)
+         $display("rt_data A     %h %h %h %h %h", rt_data[0][0], rt_data[0][1], rt_data[0][2], rt_data[0][3], rt_data[0][4]);
+      if ($time < 16'd5200)
+         $display("rt_data B     %h %h %h %h %h", rt_data[1][0], rt_data[1][1], rt_data[1][2], rt_data[1][3], rt_data[1][4]);
+      if ($time < 16'd5200)
+         $display("wdata A       %h %h %h %h %h", wdata[0][0], wdata[0][1], wdata[0][2], wdata[0][3], wdata[0][4]);
+      if ($time < 16'd5200)
+         $display("wdata B       %h %h %h %h %h", wdata[1][0], wdata[1][1], wdata[1][2], wdata[1][3], wdata[1][4]);
+      if ($time < 16'd5200)
+         $display("rssel A       %h    %h    %h    %h    %h", rssel[0][0], rssel[0][1], rssel[0][2], rssel[0][3], rssel[0][4]);
+      if ($time < 16'd5200)
+         $display("rssel B       %h    %h    %h    %h    %h", rssel[1][0], rssel[1][1], rssel[1][2], rssel[1][3], rssel[1][4]);
+      if ($time < 16'd5200)
+         $display("rtsel A       %h    %h    %h    %h    %h", rtsel[0][0], rtsel[0][1], rtsel[0][2], rtsel[0][3], rtsel[0][4]);
+      if ($time < 16'd5200)
+         $display("rtsel B       %h    %h    %h    %h    %h", rtsel[1][0], rtsel[1][1], rtsel[1][2], rtsel[1][3], rtsel[1][4]);
+      if ($time < 16'd5200)
+         $display("rdsel A       %h    %h    %h    %h    %h", rdsel[0][0], rdsel[0][1], rdsel[0][2], rdsel[0][3], rdsel[0][4]);
+      if ($time < 16'd5200)
+         $display("rdsel B       %h    %h    %h    %h    %h", rdsel[1][0], rdsel[1][1], rdsel[1][2], rdsel[1][3], rdsel[1][4]);
+      if ($time < 16'd5200)
+         $display("stall_type A  %h    %h    %h    %h    %h", stall_type[0][0], stall_type[0][1], stall_type[0][2], stall_type[0][3], stall_type[0][4]);
+      if ($time < 16'd5200)
+         $display("stall_type B  %h    %h    %h    %h    %h", stall_type[1][0], stall_type[1][1], stall_type[1][2], stall_type[1][3], stall_type[1][4]);
+      if ($time < 16'd5200)
+         $display("dmem_addr A   %h %h %h %h %h", dmem_addr[0][0], dmem_addr[0][1], dmem_addr[0][2], dmem_addr[0][3], dmem_addr[0][4]);
+      if ($time < 16'd5200)
+         $display("dmem_addr B   %h %h %h %h %h", dmem_addr[1][0], dmem_addr[1][1], dmem_addr[1][2], dmem_addr[1][3], dmem_addr[1][4]);
+      if ($time < 16'd5200)
+         $display("dmem_in A     %h %h %h %h %h", dmem_in[0][0], dmem_in[0][1], dmem_in[0][2], dmem_in[0][3], dmem_in[0][4]);
+      if ($time < 16'd5200)
+         $display("dmem_in B     %h %h %h %h %h", dmem_in[1][0], dmem_in[1][1], dmem_in[1][2], dmem_in[1][3], dmem_in[1][4]);
+      if ($time < 16'd5200)
+         $display("dmem_out A    %h %h %h %h %h", dmem_out[0][0], dmem_out[0][1], dmem_out[0][2], dmem_out[0][3], dmem_out[0][4]);
+      if ($time < 16'd5200)
+         $display("dmem_out B    %h %h %h %h %h", dmem_out[1][0], dmem_out[1][1], dmem_out[1][2], dmem_out[1][3], dmem_out[1][4]);
+      if ($time < 16'd5200)
+         $display("alu_res A     %h %h %h %h %h", alu_res[0][0], alu_res[0][1], alu_res[0][2], alu_res[0][3], alu_res[0][4]);
+      if ($time < 16'd5200)
+         $display("alu_res B     %h %h %h %h %h", alu_res[1][0], alu_res[1][1], alu_res[1][2], alu_res[1][3], alu_res[1][4]);
    end
+
 endmodule
