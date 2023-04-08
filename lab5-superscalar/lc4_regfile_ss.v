@@ -1,3 +1,5 @@
+/* Mike Zhou (mikezhou) and Jack Hourigan (hojack) */
+
 `timescale 1ns / 1ps
 
 // Prevent implicit wire declaration
@@ -39,6 +41,40 @@ module lc4_regfile_ss #(parameter n = 16)
     input  wire          i_rd_we_B   // pipe B: write enable
     );
 
-   /*** TODO: Your Code Here ***/
+   // establishing a convention: wire_name[0] is for pipe A, wire_name[1] is for pipe B
+   wire [n-1:0] reg_out [7:0];
+   wire [n-1:0] reg_rs [1:0] [7:0];
+   wire [n-1:0] reg_rt [1:0] [7:0];
+
+   genvar i;
+   for (i = 0; i < 8; i=i+1) begin
+      // i guess the genvar gets converted to a binary wire. nice!
+      // write selection
+      wire we_A = i_rd_we_A & (i_rd_A == i);
+      wire we_B = i_rd_we_B & (i_rd_B == i);
+      wire we = we_A | we_B;
+      wire [n-1:0] w_data = we_B ? i_wdata_B : i_wdata_A;
+      // pipe A
+      assign reg_rs[0][i] = (i_rs_A == i) ? (we ? w_data : reg_out[i]) : 16'b0;
+      assign reg_rt[0][i] = (i_rt_A == i) ? (we ? w_data : reg_out[i]) : 16'b0;
+      // pipe B
+      assign reg_rs[1][i] = (i_rs_B == i) ? (we ? w_data : reg_out[i]) : 16'b0;
+      assign reg_rt[1][i] = (i_rt_B == i) ? (we ? w_data : reg_out[i]) : 16'b0;
+      // regfile
+      Nbit_reg #(n, 0) register (
+         .in(w_data),
+         .out(reg_out[i]),
+         .clk(clk),
+         .we(we),
+         .gwe(gwe),
+         .rst(rst)
+      );
+   end
+
+   // dreaming of array reduction operators rn...
+   assign o_rs_data_A = reg_rs[0][0] | reg_rs[0][1] | reg_rs[0][2] | reg_rs[0][3] | reg_rs[0][4] | reg_rs[0][5] | reg_rs[0][6] | reg_rs[0][7];
+   assign o_rt_data_A = reg_rt[0][0] | reg_rt[0][1] | reg_rt[0][2] | reg_rt[0][3] | reg_rt[0][4] | reg_rt[0][5] | reg_rt[0][6] | reg_rt[0][7];
+   assign o_rs_data_B = reg_rs[1][0] | reg_rs[1][1] | reg_rs[1][2] | reg_rs[1][3] | reg_rs[1][4] | reg_rs[1][5] | reg_rs[1][6] | reg_rs[1][7];
+   assign o_rt_data_B = reg_rt[1][0] | reg_rt[1][1] | reg_rt[1][2] | reg_rt[1][3] | reg_rt[1][4] | reg_rt[1][5] | reg_rt[1][6] | reg_rt[1][7];
 
 endmodule
